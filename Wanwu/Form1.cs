@@ -12,6 +12,7 @@ using System.Drawing;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
+
 namespace WindowsFormsApp
 {
     public partial class Form1 : Form
@@ -19,6 +20,7 @@ namespace WindowsFormsApp
         //API URL
         private static readonly string apiUrl = "https://api.lingyiwanwu.com/v1/chat/completions";
         private static string apiKey = "";
+        private static string usedModel = "yi-large";
 
         //消息列表
         private static List<Dictionary<string, string>> messageHistory = new List<Dictionary<string, string>>();
@@ -102,6 +104,7 @@ namespace WindowsFormsApp
             btnSendRequest.Enabled = false;
             btnSettings.Enabled = false;
             btnReset.Enabled = false;
+            comboModel.Enabled = false;
             txtShow.Text = "";
             if (apiKey != "")
             {
@@ -127,6 +130,7 @@ namespace WindowsFormsApp
             btnSendRequest.Enabled = true;
             btnSettings.Enabled = true;
             btnReset.Enabled = true;
+            comboModel.Enabled = true;
         }
 
         //发送请求的方法
@@ -154,7 +158,7 @@ namespace WindowsFormsApp
                 // 构建请求体
                 var jsonData = new
                 {
-                    model = "yi-large",
+                    model = usedModel,
                     messages = messageHistory,
                     temperature = 0.3
                 };
@@ -176,6 +180,21 @@ namespace WindowsFormsApp
                     JObject responseObject = JObject.Parse(responseContent);
                     //访问嵌套字段
                     var messageContent = responseObject?["choices"]?.FirstOrDefault()?["message"]?["content"]?.ToString();
+                    // 提取引用资料的 URL 和标题
+                    var quoteItems = responseObject?["choices"]?.FirstOrDefault()?["quote"]?.ToObject<List<JObject>>();
+
+                    if (quoteItems != null && quoteItems.Any())
+                    {
+                        int num = 0;
+                        messageContent += Environment.NewLine + "参考资料：";
+                        foreach (var quote in quoteItems)
+                        {
+                            num++;
+                            string url = quote["url"]?.ToString();
+                            string title = quote["title"]?.ToString();
+                            messageContent += Environment.NewLine + (num) + ". " + "[" + title + "]" + "(" + url + ")";
+                        }
+                    }
                     if (messageContent != null)
                     {
                         Dictionary<string, string> mesAssistant = new Dictionary<string, string>
@@ -185,6 +204,7 @@ namespace WindowsFormsApp
                     };
                         messageHistory.Add(mesAssistant);
                         return messageContent;
+                        
                     }
                     else
                     {
@@ -193,7 +213,6 @@ namespace WindowsFormsApp
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Error: " + ex.Message);
                     return "Error: " + ex.Message;
                 }
             }
@@ -240,6 +259,16 @@ namespace WindowsFormsApp
         {
             //将展示框的内容复制到剪贴板
             Clipboard.SetText(txtShow.Text);
+        }
+
+        private void comboModle_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            usedModel = comboModel.Text;
+            if (messageHistory.Any())
+            {
+                messageHistory.Clear();
+            }
+            txtShow.Text = "更换模型成功，当前模型：" + usedModel;
         }
     }
 }
